@@ -357,10 +357,29 @@ Response size: {response_size}
 Legal focus: {focus_text}
 Language: {language}
 
-LANGUAGE RULE:
-If the selected language is "Roman Urdu", answer naturally in Roman Urdu,
-using simple English technical/legal terms where necessary. Do not use Urdu
-script. Keep section numbers and legal names accurate.
+LANGUAGE RULE — FOLLOW THIS STRICTLY:
+The selected language controls the LANGUAGE OF THE FINAL ANSWER, not the
+retrieval process.
+
+- English:
+  Write the complete answer in clear English.
+- Roman Urdu:
+  Write the complete answer in natural Pakistani Roman Urdu using English/Roman
+  letters only. NEVER use Urdu/Arabic script. Example style:
+  "Cyber stalking ka matlab hai ke kisi person ko online repeatedly follow,
+  contact ya monitor kiya jaye." Keep legal section names and official legal
+  terminology accurate.
+- English + Roman Urdu:
+  Use English for headings, legal terms, section references and key points,
+  then explain important points naturally in Roman Urdu. Do NOT use Urdu/Arabic
+  script.
+- Urdu:
+  Write the explanation in Urdu script. Keep official English legal terms and
+  section names where accuracy requires them.
+
+Do not silently switch back to English because the legal context is in English.
+Do not describe the language choice; directly answer the user's question in the
+selected language.
 
 STYLE:
 {technicality_text}
@@ -482,10 +501,26 @@ with st.sidebar:
 
     language = st.selectbox(
         "Response Language",
-        ["English", "English + Urdu", "Roman Urdu", "Urdu"],
+        [
+            "English",
+            "Roman Urdu",
+            "English + Roman Urdu",
+            "Urdu",
+        ],
         index=0,
-        help="Roman Urdu lets you chat naturally in the same style used in everyday Pakistani Roman Urdu.",
+        help=(
+            "Choose how CyberLawGPT should write its final answer. "
+            "Roman Urdu uses English/Roman letters, e.g. "
+            "'Cyber stalking ka matlab hai...'."
+        ),
     )
+    language_examples = {
+        "English": "Example: Cyber stalking is addressed under the relevant provision.",
+        "Roman Urdu": "Example: Cyber stalking ka matlab hai ke kisi person ko online repeatedly follow ya contact karna.",
+        "English + Roman Urdu": "Example: Cyber stalking — iska matlab hai kisi person ko online repeatedly follow ya contact karna.",
+        "Urdu": "مثال: سائبر اسٹاکنگ سے متعلق متعلقہ قانونی شق کا اطلاق ہو سکتا ہے۔",
+    }
+    st.caption(language_examples[language])
 
     reasoning_effort = st.selectbox(
         "Reasoning Effort",
@@ -551,77 +586,151 @@ sample_questions = {
     "General Cyber Law": [
         "What cyber offences are covered by the provided Pakistani cyber-law document?",
         "What is the purpose and scope of the law?",
-        "Which cybercrime provisions are most relevant to online users?",
+        "Which cybercrime provisions are most relevant to ordinary internet users?",
+        "What types of conduct can become cyber offences under the provided law?",
+        "Explain the main cybercrime categories in the document in simple terms.",
+        "Which provisions should a social-media user know about?",
+        "What legal protections does the document provide against online crimes?",
+        "Give me an overview of the most important sections for a student learning cyber law.",
     ],
     "Unauthorized Access": [
         "What does Pakistani cyber law say about unauthorized access to an information system?",
         "What is the legal position on accessing someone else's computer without permission?",
         "What section deals with unauthorized access?",
+        "Is accessing a computer account without the owner's permission a cyber offence?",
+        "What is the difference between authorized and unauthorized access under the law?",
+        "Explain unauthorized access with a simple real-world example.",
+        "What punishment does the provided document specify for unauthorized access?",
+        "What elements must be present for unauthorized access under the relevant provision?",
     ],
     "Unauthorized Data / System Interference": [
         "What does the law say about unauthorized copying or transmission of data?",
         "What happens when someone interferes with an information system or data?",
         "Which provisions cover damage or interference with computer data?",
+        "What does the document say about unauthorized modification of data?",
+        "What is the difference between data interference and system interference?",
+        "Can deleting or changing another person's computer data create a cyber offence?",
+        "What penalties are mentioned for data or system interference?",
+        "Explain the relevant provisions with a practical example.",
     ],
     "Electronic Fraud": [
         "What does Pakistani law say about electronic fraud?",
         "What are the legal consequences of electronic fraud under the provided document?",
         "Which section deals with electronic fraud?",
+        "What conduct can qualify as electronic fraud under the law?",
+        "Give a simple example of electronic fraud and explain the relevant provision.",
+        "What punishment does the document specify for electronic fraud?",
+        "How does the law distinguish electronic fraud from ordinary online disputes?",
+        "What legal elements are mentioned for electronic fraud?",
     ],
     "Identity Information": [
         "What is identity information under Pakistani cyber law?",
         "What does the law say about unauthorized use of identity information?",
         "What happens if someone uses another person's identity information without authorization?",
+        "Which section covers unauthorized use of identity information?",
+        "Give a practical example of misuse of identity information.",
+        "What punishment is specified for misuse of identity information?",
+        "How does the law protect a person's identity information?",
+        "Does creating or using a fake online identity raise an issue under the document?",
     ],
     "Cyber Stalking": [
         "What is cyber stalking under Pakistani cyber law?",
         "Which conduct can fall under cyber stalking?",
         "What punishment does the provided document specify for cyber stalking?",
+        "Which section deals with cyber stalking?",
+        "Can repeated unwanted online communication be relevant to cyber stalking?",
+        "Explain cyber stalking in simple terms using the wording of the law.",
+        "What are the important elements of cyber stalking under the document?",
+        "How does the law address monitoring or contacting someone online?",
     ],
     "Cyber Bullying / Online Harassment": [
         "What does the law say about online harassment or cyber bullying?",
         "Which cyber-law provision may apply to repeated unwanted online communication?",
         "What legal protection does the provided document describe for online harassment?",
+        "Which section is relevant to cyber bullying?",
+        "What conduct is covered by the relevant online harassment provision?",
+        "Give a simple example of online harassment and explain the legal relevance.",
+        "What punishment is specified for the relevant offence?",
+        "How is online harassment treated under the provided cyber-law document?",
     ],
     "Spoofing": [
         "What is spoofing under Pakistani cyber law?",
         "Which section deals with spoofing?",
         "Give a simple example of conduct that may fall under spoofing according to the document.",
+        "What does the law say about creating a fake source or origin of information?",
+        "What punishment is mentioned for spoofing?",
+        "How is spoofing different from identity-information misuse?",
+        "What are the key elements of spoofing under the relevant provision?",
+        "Explain spoofing in simple student-friendly language.",
     ],
     "Malicious Code": [
         "What does Pakistani cyber law say about malicious code?",
         "Which provision deals with malicious code?",
         "What legal consequences are specified for malicious code?",
+        "What is malicious code according to the provided document?",
+        "Give a simple example of malicious code-related conduct.",
+        "What punishment does the document specify for malicious code?",
+        "How does the law address intentionally introducing harmful code?",
+        "What are the important elements of the malicious-code offence?",
     ],
     "Data Protection / Privacy": [
         "What privacy-related protections are mentioned in the provided cyber-law document?",
         "What does the law say about unauthorized access to private information?",
         "Which provisions are relevant to privacy or personal information?",
+        "How does the document address confidentiality of information?",
+        "What cyber-law provisions may protect personal information?",
+        "Explain the privacy-related provisions in simple terms.",
+        "What penalties are mentioned for privacy-related offences?",
+        "Which sections should I read for personal-data-related cyber offences?",
     ],
     "Online Content / Offences": [
         "What online content-related offences are covered by the document?",
         "What does Pakistani cyber law say about unlawful online content?",
         "Which provisions relate to harmful or prohibited online content?",
+        "What types of online content are addressed by the provided law?",
+        "Which section should I read for an online-content offence?",
+        "Explain the relevant online-content provisions in simple terms.",
+        "What penalties are mentioned for the relevant content-related offences?",
+        "Does the document describe any process concerning removal or blocking of online content?",
     ],
     "Investigation & Enforcement": [
         "Which authority or process is mentioned for investigation of cyber offences?",
         "What investigation powers or procedures are described in the document?",
         "What does the law say about enforcement of cybercrime provisions?",
+        "Which authorities are responsible for dealing with cyber offences?",
+        "What does the document say about investigation of electronic evidence?",
+        "What procedures are described for investigating cybercrime?",
+        "Which provisions discuss search, seizure, or investigation?",
+        "Explain the investigation and enforcement framework in simple terms.",
     ],
     "Other / Custom Focus": [
-        "What are the most relevant provisions for my question?",
-        "Which section of the provided document is relevant to this issue?",
+        "Which section of the provided document is most relevant to my question?",
         "Explain the relevant Pakistani cyber-law provision in simple terms.",
+        "What legal elements are required for this cyber offence?",
+        "What punishment does the provided document specify for this offence?",
+        "Can you identify the relevant section and explain it with an example?",
+        "According only to the provided PDF, what does the law say about this issue?",
+        "What are the key legal points I should know about this topic?",
+        "If the document does not contain enough information, tell me clearly instead of guessing.",
     ],
 }
 
 active_samples = sample_questions.get(legal_focus_choice, sample_questions["General Cyber Law"])
-st.caption("✨ Try Asking")
-sample_cols = st.columns(3)
+st.caption("✨ Try Asking — choose a question to test the RAG")
 
-for i, sample in enumerate(active_samples):
-    if sample_cols[i].button(sample, key=f"sample_{legal_focus_choice}_{i}", use_container_width=True):
-        st.session_state.pending_question = sample
+# Show 8 questions at a time in a compact 4-column layout.
+visible_samples = active_samples[:8]
+sample_cols = st.columns(4)
+
+for i, sample in enumerate(visible_samples):
+    with sample_cols[i % 4]:
+        if st.button(
+            sample,
+            key=f"sample_{legal_focus_choice}_{i}",
+            use_container_width=True,
+        ):
+            st.session_state.pending_question = sample
+            st.rerun()
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
