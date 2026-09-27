@@ -1,7 +1,6 @@
 import os
 import re
 import hashlib
-from io import BytesIO
 
 import faiss
 import numpy as np
@@ -212,6 +211,7 @@ def load_rag():
     meta_file = os.path.join(CACHE_DIR, f"meta_{fingerprint}.npy")
 
     embedding_model = SentenceTransformer(EMBED_MODEL)
+    pdf_page_count = len(PdfReader(pdf_path).pages)
 
     if (
         os.path.exists(index_file)
@@ -221,7 +221,7 @@ def load_rag():
         index = faiss.read_index(index_file)
         chunks = np.load(chunks_file, allow_pickle=True).tolist()
         metadata = np.load(meta_file, allow_pickle=True).tolist()
-        return embedding_model, index, chunks, metadata, pdf_source
+        return embedding_model, index, chunks, metadata, pdf_source, pdf_page_count
 
     chunks, metadata = extract_chunks(pdf_path)
 
@@ -240,7 +240,7 @@ def load_rag():
     np.save(chunks_file, np.array(chunks, dtype=object))
     np.save(meta_file, np.array(metadata, dtype=object))
 
-    return embedding_model, index, chunks, metadata, pdf_source
+    return embedding_model, index, chunks, metadata, pdf_source, pdf_page_count
 
 
 def retrieve(query, embedding_model, index, chunks, metadata, top_k=6):
@@ -357,6 +357,11 @@ Response size: {response_size}
 Legal focus: {focus_text}
 Language: {language}
 
+LANGUAGE RULE:
+If the selected language is "Roman Urdu", answer naturally in Roman Urdu,
+using simple English technical/legal terms where necessary. Do not use Urdu
+script. Keep section numbers and legal names accurate.
+
 STYLE:
 {technicality_text}
 {size_text}
@@ -432,35 +437,61 @@ st.markdown(
 with st.sidebar:
     st.header("⚙️ Answer Settings")
 
-    technicality = st.select_slider(
+    technicality = st.selectbox(
         "Technicality Level",
-        options=["Simple", "Intermediate", "Technical"],
-        value="Intermediate",
+        ["Simple", "Intermediate", "Technical"],
+        index=1,
     )
 
-    response_size = st.select_slider(
+    response_size = st.selectbox(
         "Response Size",
-        options=["Short", "Medium", "Detailed"],
-        value="Medium",
+        ["Short", "Medium", "Detailed"],
+        index=1,
     )
 
-    legal_focus = st.text_input(
+    legal_focus_options = [
+        "General Cyber Law",
+        "Unauthorized Access",
+        "Unauthorized Data / System Interference",
+        "Electronic Fraud",
+        "Identity Information",
+        "Cyber Stalking",
+        "Cyber Bullying / Online Harassment",
+        "Spoofing",
+        "Malicious Code",
+        "Data Protection / Privacy",
+        "Online Content / Offences",
+        "Investigation & Enforcement",
+        "Other / Custom Focus",
+    ]
+
+    legal_focus_choice = st.selectbox(
         "Legal Focus",
-        placeholder="e.g. cyber stalking, identity theft, online fraud",
-        help="Optional topic to focus retrieval and explanation around.",
+        legal_focus_options,
+        index=0,
+        help="Choose a predefined legal area or select Other / Custom Focus.",
     )
+
+    if legal_focus_choice == "Other / Custom Focus":
+        legal_focus = st.text_input(
+            "Custom Legal Focus",
+            placeholder="e.g. digital evidence, online threats...",
+        )
+    else:
+        legal_focus = legal_focus_choice
 
     language = st.selectbox(
         "Response Language",
-        ["English", "English + Urdu", "Urdu"],
+        ["English", "English + Urdu", "Roman Urdu", "Urdu"],
         index=0,
+        help="Roman Urdu lets you chat naturally in the same style used in everyday Pakistani Roman Urdu.",
     )
 
     reasoning_effort = st.selectbox(
         "Reasoning Effort",
         ["low", "medium", "high"],
         index=1,
-        help="Higher reasoning can improve difficult legal questions but may use more tokens.",
+        help="Higher reasoning can help with difficult questions but may use more tokens.",
     )
 
     top_k = st.slider(
@@ -468,7 +499,7 @@ with st.sidebar:
         min_value=3,
         max_value=10,
         value=6,
-        help="Number of PDF chunks supplied to the model.",
+        help="Number of relevant PDF chunks supplied to the model.",
     )
 
     st.divider()
@@ -479,42 +510,117 @@ with st.sidebar:
     st.caption("Embeddings")
     st.code(EMBED_MODEL)
 
-    if st.button("🧹 Clear Chat"):
+    if st.button("🧹 Clear Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
 # Initialize resources.
 with st.spinner("Loading cyber-law PDF and preparing FAISS knowledge base..."):
     try:
-        embedding_model, index, chunks, metadata, pdf_source = load_rag()
+        (
+            embedding_model,
+            index,
+            chunks,
+            metadata,
+            pdf_source,
+            pdf_page_count,
+        ) = load_rag()
     except Exception as e:
         st.error(str(e))
         st.stop()
 
-st.success(
-    f"Knowledge base ready • {len(chunks):,} chunks indexed • "
-    f"Source: {pdf_source if pdf_source != 'Cached PDF' else 'cached PDF'}"
-)
+# Dashboard-style knowledge-base metrics.
+metric_cols = st.columns(4)
+with metric_cols[0]:
+    st.metric("PDF Pages", pdf_page_count)
+with metric_cols[1]:
+    st.metric("Indexed Chunks", f"{len(chunks):,}")
+with metric_cols[2]:
+    st.metric("Embedding Model", "MiniLM-L6")
+with metric_cols[3]:
+    st.metric("Retrieval", "FAISS")
+
+st.caption("Knowledge base ready • Source document is cached locally for retrieval.")
 
 st.subheader("💬 Ask a Cyber-Law Question")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-sample_questions = [
-    "What does Pakistani law say about cyber stalking?",
-    "What is unauthorized use of identity information under PECA?",
-    "What does the law say about electronic fraud?",
-    "What is the legal position on online harassment?",
-    "What are the rules concerning malicious code?",
-    "What does PECA say about spoofing?",
-]
+sample_questions = {
+    "General Cyber Law": [
+        "What cyber offences are covered by the provided Pakistani cyber-law document?",
+        "What is the purpose and scope of the law?",
+        "Which cybercrime provisions are most relevant to online users?",
+    ],
+    "Unauthorized Access": [
+        "What does Pakistani cyber law say about unauthorized access to an information system?",
+        "What is the legal position on accessing someone else's computer without permission?",
+        "What section deals with unauthorized access?",
+    ],
+    "Unauthorized Data / System Interference": [
+        "What does the law say about unauthorized copying or transmission of data?",
+        "What happens when someone interferes with an information system or data?",
+        "Which provisions cover damage or interference with computer data?",
+    ],
+    "Electronic Fraud": [
+        "What does Pakistani law say about electronic fraud?",
+        "What are the legal consequences of electronic fraud under the provided document?",
+        "Which section deals with electronic fraud?",
+    ],
+    "Identity Information": [
+        "What is identity information under Pakistani cyber law?",
+        "What does the law say about unauthorized use of identity information?",
+        "What happens if someone uses another person's identity information without authorization?",
+    ],
+    "Cyber Stalking": [
+        "What is cyber stalking under Pakistani cyber law?",
+        "Which conduct can fall under cyber stalking?",
+        "What punishment does the provided document specify for cyber stalking?",
+    ],
+    "Cyber Bullying / Online Harassment": [
+        "What does the law say about online harassment or cyber bullying?",
+        "Which cyber-law provision may apply to repeated unwanted online communication?",
+        "What legal protection does the provided document describe for online harassment?",
+    ],
+    "Spoofing": [
+        "What is spoofing under Pakistani cyber law?",
+        "Which section deals with spoofing?",
+        "Give a simple example of conduct that may fall under spoofing according to the document.",
+    ],
+    "Malicious Code": [
+        "What does Pakistani cyber law say about malicious code?",
+        "Which provision deals with malicious code?",
+        "What legal consequences are specified for malicious code?",
+    ],
+    "Data Protection / Privacy": [
+        "What privacy-related protections are mentioned in the provided cyber-law document?",
+        "What does the law say about unauthorized access to private information?",
+        "Which provisions are relevant to privacy or personal information?",
+    ],
+    "Online Content / Offences": [
+        "What online content-related offences are covered by the document?",
+        "What does Pakistani cyber law say about unlawful online content?",
+        "Which provisions relate to harmful or prohibited online content?",
+    ],
+    "Investigation & Enforcement": [
+        "Which authority or process is mentioned for investigation of cyber offences?",
+        "What investigation powers or procedures are described in the document?",
+        "What does the law say about enforcement of cybercrime provisions?",
+    ],
+    "Other / Custom Focus": [
+        "What are the most relevant provisions for my question?",
+        "Which section of the provided document is relevant to this issue?",
+        "Explain the relevant Pakistani cyber-law provision in simple terms.",
+    ],
+}
 
-st.caption("Try Asking")
+active_samples = sample_questions.get(legal_focus_choice, sample_questions["General Cyber Law"])
+st.caption("✨ Try Asking")
 sample_cols = st.columns(3)
 
-for i, sample in enumerate(sample_questions):
-    if sample_cols[i % 3].button(sample, key=f"sample_{i}", use_container_width=True):
+for i, sample in enumerate(active_samples):
+    if sample_cols[i].button(sample, key=f"sample_{legal_focus_choice}_{i}", use_container_width=True):
         st.session_state.pending_question = sample
 
 for message in st.session_state.messages:
@@ -537,7 +643,7 @@ if question:
     with st.chat_message("assistant"):
         with st.spinner("Searching the cyber-law knowledge base..."):
             retrieval_query = question
-            if legal_focus.strip():
+            if legal_focus.strip() and legal_focus != "General Cyber Law":
                 retrieval_query = f"{legal_focus}: {question}"
 
             results = retrieve(
